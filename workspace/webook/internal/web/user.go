@@ -229,6 +229,36 @@ func (h *UserHandler) Profile(ctx *gin.Context) {
 	return
 }
 
+func (h *UserHandler) ProfileJWT(ctx *gin.Context) {
+
+	claims, ok := ctx.Get("claims")
+	if !ok {
+		ctx.String(http.StatusOK, "内部错误")
+		return
+	}
+
+	userClaims, ok := claims.(UserClaims)
+	if !ok {
+		ctx.String(http.StatusOK, "内部错误")
+		return
+	}
+	userId := userClaims.Uid
+
+	user, err := h.svc.Profile(ctx.Request.Context(), userId)
+	if err != nil {
+		ctx.String(http.StatusOK, "内部错误")
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"userId":       user.Id,
+		"email":        user.Email,
+		"nickName":     user.Nickname,
+		"birthday":     user.Birthday,
+		"introduction": user.Introduction,
+	})
+	return
+}
+
 type UserClaims struct {
 	jwt.RegisteredClaims
 	Uid int64
