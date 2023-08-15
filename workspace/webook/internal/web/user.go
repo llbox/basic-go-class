@@ -3,9 +3,11 @@ package web
 import (
 	"basic-go-class/workspace/webook/internal/domain"
 	"basic-go-class/workspace/webook/internal/service"
+	"errors"
 	"github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net/http"
 )
@@ -32,13 +34,14 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 func (h *UserHandler) RegisterUserRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 
-	ug.POST("/signUp", h.signUp)
-	ug.POST("/signIn", h.signIn)
-	ug.POST("/edit", h.edit)
-	ug.GET("/profile", h.profile)
+	ug.POST("/signUp", h.SignUp)
+	//ug.POST("/signIn", h.Login)
+	ug.POST("/signIn", h.LoginJWT)
+	ug.POST("/edit", h.Edit)
+	ug.GET("/profile", h.Profile)
 }
 
-func (h *UserHandler) signUp(c *gin.Context) {
+func (h *UserHandler) SignUp(c *gin.Context) {
 	type signUpReq struct {
 		UserName        string `json:"userName"`
 		Password        string `json:"password"`
@@ -94,7 +97,7 @@ func (h *UserHandler) signUp(c *gin.Context) {
 
 }
 
-func (h *UserHandler) signIn(ctx *gin.Context) {
+func (h *UserHandler) Login(ctx *gin.Context) {
 	type signInReq struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -121,7 +124,43 @@ func (h *UserHandler) signIn(ctx *gin.Context) {
 	return
 }
 
-func (h *UserHandler) edit(ctx *gin.Context) {
+func (h *UserHandler) LoginJWT(ctx *gin.Context) {
+	type signInReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req signInReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	log.Printf("email: %s, password: %s", req.Email, req.Password)
+
+	user, err := h.svc.SignIn(ctx.Request.Context(), req.Email, req.Password)
+	if errors.Is(err, service.ErrInvalidUserOrPassword) {
+		ctx.String(http.StatusOK, "无效的账户或密码")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 登陆成功处理token
+	claims := UserClaims{
+		Uid: user.Id,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte("gtIa6KYnzwFIqf1Dt6z62mmdFhRNmsfw"))
+	ctx.Header("x-jwt-token", tokenStr)
+
+	if err != nil {
+		return
+	}
+	ctx.String(http.StatusOK, "登录成功")
+	return
+}
+
+func (h *UserHandler) Edit(ctx *gin.Context) {
 	type editReq struct {
 		Nickname     string `json:"nickname"`
 		Birthday     string `json:"birthday"`
@@ -172,7 +211,7 @@ func (h *UserHandler) edit(ctx *gin.Context) {
 	return
 }
 
-func (h *UserHandler) profile(ctx *gin.Context) {
+func (h *UserHandler) Profile(ctx *gin.Context) {
 	sess := sessions.Default(ctx)
 	userId := sess.Get("userId").(int64)
 	user, err := h.svc.Profile(ctx.Request.Context(), userId)
@@ -188,4 +227,9 @@ func (h *UserHandler) profile(ctx *gin.Context) {
 		"introduction": user.Introduction,
 	})
 	return
+}
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid int64
 }

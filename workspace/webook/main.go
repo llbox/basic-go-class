@@ -13,7 +13,6 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"strings"
-	"time"
 )
 
 func main() {
@@ -29,7 +28,7 @@ func initWebServer() *gin.Engine {
 	server.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
-		MaxAge:           1 * time.Hour,
+		MaxAge:           60,
 		AllowOriginFunc: func(origin string) bool {
 			if strings.HasPrefix(origin, "localhost") {
 				return true
@@ -45,7 +44,13 @@ func initWebServer() *gin.Engine {
 		panic(err)
 	}
 	server.Use(sessions.Sessions("mysession", store))
-	server.Use(middleware.NewLoginMiddlewareBuilder().
+
+	//server.Use(middleware.NewLoginMiddlewareBuilder().
+	//	IgnorePaths("/users/signUp").
+	//	IgnorePaths("/users/signIn").
+	//	Build())
+
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signUp").
 		IgnorePaths("/users/signIn").
 		Build())
