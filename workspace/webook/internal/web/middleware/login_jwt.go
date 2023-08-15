@@ -4,8 +4,10 @@ import (
 	"basic-go-class/workspace/webook/internal/web"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type LoginJWTMiddlewareBuilder struct {
@@ -55,6 +57,20 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		if token == nil || !token.Valid {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
+		}
+		if claims.UserAgent != ctx.Request.UserAgent() {
+			// 安全问题，重新登录
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		now := time.Now()
+		if claims.ExpiresAt.Sub(now) < time.Second*50 {
+			claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Minute))
+			tokenStr, err = token.SignedString([]byte("gtIa6KYnzwFIqf1Dt6z62mmdFhRNmsfw"))
+			if err != nil {
+				log.Printf("jwt 续约失败：%v", err)
+			}
+			ctx.Header("x-jwt-token", tokenStr)
 		}
 		ctx.Set("claims", claims)
 	}

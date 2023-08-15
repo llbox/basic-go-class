@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net/http"
+	"time"
 )
 
 type UserHandler struct {
@@ -119,6 +120,9 @@ func (h *UserHandler) Login(ctx *gin.Context) {
 	}
 	sess := sessions.Default(ctx)
 	sess.Set("userId", user.Id)
+	sess.Options(sessions.Options{
+		MaxAge: 60,
+	})
 	sess.Save()
 	ctx.String(http.StatusOK, "登录成功")
 	return
@@ -147,7 +151,11 @@ func (h *UserHandler) LoginJWT(ctx *gin.Context) {
 
 	// 登陆成功处理token
 	claims := UserClaims{
-		Uid: user.Id,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+		Uid:       user.Id,
+		UserAgent: ctx.Request.UserAgent(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte("gtIa6KYnzwFIqf1Dt6z62mmdFhRNmsfw"))
@@ -158,6 +166,15 @@ func (h *UserHandler) LoginJWT(ctx *gin.Context) {
 	}
 	ctx.String(http.StatusOK, "登录成功")
 	return
+}
+
+func (h *UserHandler) Logout(ctx *gin.Context) {
+	sess := sessions.Default(ctx)
+	sess.Options(sessions.Options{
+		MaxAge: -1,
+	})
+	sess.Save()
+	ctx.String(http.StatusOK, "退出登录成功")
 }
 
 func (h *UserHandler) Edit(ctx *gin.Context) {
@@ -261,5 +278,6 @@ func (h *UserHandler) ProfileJWT(ctx *gin.Context) {
 
 type UserClaims struct {
 	jwt.RegisteredClaims
-	Uid int64
+	Uid       int64
+	UserAgent string
 }

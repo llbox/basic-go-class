@@ -12,14 +12,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 )
 
 func main() {
-	db := initDB()
-	u := initUser(db)
-	server := initWebServer()
-	u.RegisterUserRoutes(server)
+	//db := initDB()
+	//u := initUser(db)
+	//server := initWebServer()
+	//u.RegisterUserRoutes(server)
+
+	server := gin.Default()
+	server.GET("/hello", func(context *gin.Context) {
+		context.String(http.StatusOK, "hello man!")
+	})
 	server.Run(":8080")
 }
 
@@ -28,6 +34,7 @@ func initWebServer() *gin.Engine {
 	server.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"x-jwt-token"},
 		MaxAge:           60,
 		AllowOriginFunc: func(origin string) bool {
 			if strings.HasPrefix(origin, "localhost") {
