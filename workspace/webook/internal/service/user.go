@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"golang.org/x/crypto/bcrypt"
-	"log"
 )
 
 var (
@@ -35,13 +34,14 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 
 func (svc *UserService) SignIn(ctx context.Context, email, password string) (domain.User, error) {
 	u, err := svc.repo.FindUserByEmail(ctx, email)
+	//log.Printf("find a user by email: %+v", u)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	if err != nil {
 		return domain.User{}, err
 	}
-	log.Printf("user: %+v", u)
+	//log.Printf("user: %+v", u)
 	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 	if err != nil {
 		return domain.User{}, ErrInvalidUserOrPassword

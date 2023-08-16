@@ -35,16 +35,18 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 func (h *UserHandler) RegisterUserRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 
-	ug.POST("/signUp", h.SignUp)
-	//ug.POST("/signIn", h.Login)
-	ug.POST("/signIn", h.LoginJWT)
-	ug.POST("/edit", h.Edit)
-	ug.GET("/profile", h.Profile)
+	ug.POST("/signup", h.Signup)
+	ug.POST("/login", h.LoginJWT)
+	ug.POST("/edit", h.EditJWT)
+	ug.GET("/profile", h.ProfileJWT)
+
+	//ug.POST("/v1/signIn", h.Login)
+	//ug.GET("/v1/profile", h.Profile)
 }
 
-func (h *UserHandler) SignUp(c *gin.Context) {
+func (h *UserHandler) Signup(c *gin.Context) {
 	type signUpReq struct {
-		UserName        string `json:"userName"`
+		Email           string `json:"email"`
 		Password        string `json:"password"`
 		ConfirmPassword string `json:"confirmPassword"`
 	}
@@ -55,7 +57,7 @@ func (h *UserHandler) SignUp(c *gin.Context) {
 		return
 	}
 
-	ok, err := h.emailRegExp.MatchString(req.UserName)
+	ok, err := h.emailRegExp.MatchString(req.Email)
 	if err != nil {
 		c.String(http.StatusOK, "内部错误")
 		return
@@ -81,10 +83,10 @@ func (h *UserHandler) SignUp(c *gin.Context) {
 	}
 
 	err = h.svc.SignUp(c.Request.Context(), domain.User{
-		Email:    req.UserName,
+		Email:    req.Email,
 		Password: req.Password,
 	})
-	if err == service.ErrUserDuplicateEmail {
+	if errors.Is(err, service.ErrUserDuplicateEmail) {
 		c.String(http.StatusOK, "邮箱冲突")
 		return
 	}
@@ -137,7 +139,7 @@ func (h *UserHandler) LoginJWT(ctx *gin.Context) {
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
-	log.Printf("email: %s, password: %s", req.Email, req.Password)
+	//log.Printf("email: %s, password: %s", req.Email, req.Password)
 
 	user, err := h.svc.SignIn(ctx.Request.Context(), req.Email, req.Password)
 	if errors.Is(err, service.ErrInvalidUserOrPassword) {
@@ -152,7 +154,7 @@ func (h *UserHandler) LoginJWT(ctx *gin.Context) {
 	// 登陆成功处理token
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		Uid:       user.Id,
 		UserAgent: ctx.Request.UserAgent(),
@@ -227,6 +229,60 @@ func (h *UserHandler) Edit(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "更新成功")
 	return
 }
+func (h *UserHandler) EditJWT(ctx *gin.Context) {
+	type editReq struct {
+		Nickname     string `json:"nickname"`
+		Birthday     string `json:"birthday"`
+		Introduction string `json:"introduction"`
+	}
+	var req editReq
+	if err := ctx.Bind(&req); err != nil {
+		ctx.String(http.StatusOK, "参数格式异常")
+		return
+	}
+	//log.Printf("request: %+v", req)
+	// nickname 长度[5, 10]
+	if len(req.Nickname) < 4 || len(req.Nickname) > 10 {
+		ctx.String(http.StatusOK, "昵称长度最小为4，最大为10")
+		return
+	}
+	// birthday yyyy-mm-dd格式校验
+	ok, err := h.birthdayRegExp.MatchString(req.Birthday)
+	if err != nil {
+		ctx.String(http.StatusOK, "生日校验系统错误")
+		return
+	}
+	if !ok {
+		ctx.String(http.StatusOK, "生日格式错误")
+		return
+	}
+	// introduction 长度[0, 255]
+	if len(req.Introduction) > 255 {
+		ctx.String(http.StatusOK, "简介长度不能超过255个字符")
+		return
+	}
+
+	claims, ok := ctx.Get("user")
+	if !ok {
+		ctx.String(http.StatusOK, "系统错误")
+		log.Printf("calims 异常: %v", claims)
+		return
+	}
+	uc := claims.(*UserClaims)
+	err = h.svc.Edit(ctx.Request.Context(), domain.User{
+		Id:           uc.Uid,
+		Nickname:     req.Nickname,
+		Birthday:     req.Birthday,
+		Introduction: req.Introduction,
+	})
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ctx.String(http.StatusOK, "更新成功")
+	return
+}
 
 func (h *UserHandler) Profile(ctx *gin.Context) {
 	sess := sessions.Default(ctx)
@@ -248,15 +304,12 @@ func (h *UserHandler) Profile(ctx *gin.Context) {
 
 func (h *UserHandler) ProfileJWT(ctx *gin.Context) {
 
-	claims, ok := ctx.Get("claims")
+	claims := ctx.MustGet("user")
+	// ！！注意是指针
+	userClaims, ok := claims.(*UserClaims)
 	if !ok {
 		ctx.String(http.StatusOK, "内部错误")
-		return
-	}
-
-	userClaims, ok := claims.(UserClaims)
-	if !ok {
-		ctx.String(http.StatusOK, "内部错误")
+		log.Println("非法的claims")
 		return
 	}
 	userId := userClaims.Uid
@@ -264,6 +317,7 @@ func (h *UserHandler) ProfileJWT(ctx *gin.Context) {
 	user, err := h.svc.Profile(ctx.Request.Context(), userId)
 	if err != nil {
 		ctx.String(http.StatusOK, "内部错误")
+		log.Printf("用户查询失败: %v\n", err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{

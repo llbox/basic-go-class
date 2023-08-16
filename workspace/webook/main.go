@@ -12,20 +12,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
 	"strings"
 )
 
 func main() {
-	//db := initDB()
-	//u := initUser(db)
-	//server := initWebServer()
-	//u.RegisterUserRoutes(server)
+	db := initDB()
+	u := initUser(db)
+	server := initWebServer()
+	u.RegisterUserRoutes(server)
 
-	server := gin.Default()
-	server.GET("/hello", func(context *gin.Context) {
-		context.String(http.StatusOK, "hello man!")
-	})
+	//server := gin.Default()
+	//server.GET("/hello", func(context *gin.Context) {
+	//	context.String(http.StatusOK, "hello man!")
+	//})
 	server.Run(":8080")
 }
 
@@ -54,12 +53,12 @@ func initWebServer() *gin.Engine {
 
 	//server.Use(middleware.NewLoginMiddlewareBuilder().
 	//	IgnorePaths("/users/signUp").
-	//	IgnorePaths("/users/signIn").
+	//	IgnorePaths("/users/v1/signIn").
 	//	Build())
 
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
-		IgnorePaths("/users/signUp").
-		IgnorePaths("/users/signIn").
+		IgnorePaths("/users/signup").
+		IgnorePaths("/users/login").
 		Build())
 
 	return server

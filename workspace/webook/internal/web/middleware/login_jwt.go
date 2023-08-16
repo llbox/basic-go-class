@@ -64,14 +64,14 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			return
 		}
 		now := time.Now()
-		if claims.ExpiresAt.Sub(now) < time.Second*50 {
-			claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Minute))
+		if claims.ExpiresAt.Sub(now) < 10*time.Minute {
+			claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Minute * 30))
 			tokenStr, err = token.SignedString([]byte("gtIa6KYnzwFIqf1Dt6z62mmdFhRNmsfw"))
 			if err != nil {
 				log.Printf("jwt 续约失败：%v", err)
 			}
 			ctx.Header("x-jwt-token", tokenStr)
 		}
-		ctx.Set("claims", claims)
+		ctx.Set("user", claims)
 	}
 }
