@@ -1,6 +1,7 @@
 package main
 
 import (
+	"basic-go-class/workspace/webook/internal/config"
 	"basic-go-class/workspace/webook/internal/repository"
 	"basic-go-class/workspace/webook/internal/repository/dao"
 	"basic-go-class/workspace/webook/internal/service"
@@ -25,7 +26,7 @@ func main() {
 	//server.GET("/hello", func(context *gin.Context) {
 	//	context.String(http.StatusOK, "hello man!")
 	//})
-	server.Run(":8080")
+	server.Run(":8081")
 }
 
 func initWebServer() *gin.Engine {
@@ -43,7 +44,7 @@ func initWebServer() *gin.Engine {
 		},
 	}))
 	//store := cookie.NewStore([]byte("secret"))
-	store, err := redis.NewStore(16, "tcp", "localhost:16379", "",
+	store, err := redis.NewStore(16, "tcp", config.Config.Redis.Addr, "",
 		[]byte("efbNSXWCJr94OauKRHbtUVJyWynEenYW"), []byte("IZpTbmLUUHzpCks6ovsjkMiueTGYtylf"))
 
 	if err != nil {
@@ -73,7 +74,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13306)/webook"))
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
 	if err != nil {
 		panic(err)
 	}

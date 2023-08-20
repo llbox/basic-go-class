@@ -1,4 +1,6 @@
 FROM ubuntu:20.04
-COPY webook /app/webook
 WORKDIR /app
-ENTRYPOINT ["/app/webook"]
+COPY webook .
+RUN chmod +x ./webook
+EXPOSE 8080
+ENTRYPOINT ./webook
