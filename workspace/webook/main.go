@@ -8,11 +8,10 @@ import (
 	"basic-go-class/workspace/webook/internal/web"
 	"basic-go-class/workspace/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 )
 
@@ -23,9 +22,9 @@ func main() {
 	u.RegisterUserRoutes(server)
 
 	//server := gin.Default()
-	//server.GET("/hello", func(context *gin.Context) {
-	//	context.String(http.StatusOK, "hello man!")
-	//})
+	server.GET("/hello", func(context *gin.Context) {
+		context.String(http.StatusOK, "hello man!")
+	})
 	server.Run(":8081")
 }
 
@@ -44,13 +43,13 @@ func initWebServer() *gin.Engine {
 		},
 	}))
 	//store := cookie.NewStore([]byte("secret"))
-	store, err := redis.NewStore(16, "tcp", config.Config.Redis.Addr, "",
-		[]byte("efbNSXWCJr94OauKRHbtUVJyWynEenYW"), []byte("IZpTbmLUUHzpCks6ovsjkMiueTGYtylf"))
-
-	if err != nil {
-		panic(err)
-	}
-	server.Use(sessions.Sessions("mysession", store))
+	//store, err := redis.NewStore(16, "tcp", config.Config.Redis.Addr, "",
+	//	[]byte("efbNSXWCJr94OauKRHbtUVJyWynEenYW"), []byte("IZpTbmLUUHzpCks6ovsjkMiueTGYtylf"))
+	//
+	//if err != nil {
+	//	panic(err)
+	//}
+	//server.Use(sessions.Sessions("mysession", store))
 
 	//server.Use(middleware.NewLoginMiddlewareBuilder().
 	//	IgnorePaths("/users/signUp").
@@ -60,6 +59,7 @@ func initWebServer() *gin.Engine {
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").
+		IgnorePaths("/hello").
 		Build())
 
 	return server
